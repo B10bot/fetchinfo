@@ -1,0 +1,105 @@
+#!/bin/zsh
+
+# This is currently a script that displays system information
+# However, I would like it to be a screenfetch like program at some point
+# NOTE: The way this program is written, flags will produce input as many
+# time as they are given
+
+# This is a function to display hostname and OS
+hostname () { # Find length of username and hostname and center them (( LEN=(40-(${#USER}+${#HOST}+4))/2 )) while [ "$LEN" -ne 0 ]; do echo -n ' '; (( LEN-- )); done
+	echo $USER 'at' $HOST
+# Make a line
+	echo '----------------------------------------'
+}
+
+# '-s' flag: shows OS and other system info
+system () {
+	OS=$( uname -s )
+	PKGMGR="pkg"
+	NPKG=$( pkg info | wc -l | cut -w -f 2 )
+	echo "OS: $OS"
+	echo "PACKAGE MANAGER: $PKGMGR"
+	echo "PACKAGES INSTALLED: $NPKG"
+}
+
+# '-m' flag: shows machine related info
+machine () {
+	ARCH=$( uname -p )
+	NCPU=$( sysctl hw.ncpu | cut -w -f 2 )
+	echo "ARCHITECTURE: $ARCH"
+	echo "CPU CORES: $NCPU"
+}
+
+# '-n' flag: shows networking info
+net () {
+# Work in progress
+# I need the _ip_ command,
+# but have no wifi to install it
+# the irony
+}
+
+# '-b' flag: shows battery info 
+battery () {
+# Collect information
+	INFO=$( acpiconf -i 0 )
+	PERCENT=$( echo $INFO | grep -i 'remaining capacity' | cut -w -f 3 )
+	STATE=$( echo $INFO | grep -i 'state' | cut -w -f 2 )
+	TIME=$( echo $INFO | grep -i 'remaining time' | cut -w -f 3 )
+
+# Display the information
+	echo  'BATTERY STATE: ' $STATE
+	echo 'BATTERY PERCENT: ' $PERCENT
+	
+# If the amount of time left is relavant, display it as well
+	if [ $STATE = 'discharging' ]
+	then echo 'BATTERY TIME LEFT: ' $( echo $TIME | cut -d : -f 1 ) 'hours and' $( echo $TIME | cut -d : -f 2 ) 'minutes'
+# If the time til full is relavant, display it instead
+	elif [ $STATE = 'charging' ]
+	then
+# I this will be for finding time till fully charged
+	fi
+}
+
+# Checking against the size stop the braces from thinking flags with two dashes
+# are conditions for it. Change it to [ $@ = '' ] and you'll see what I mean
+if [ ${#@} -eq 0 ]
+# If there are no arguments given, output everything
+then hostname; system; battery;
+else
+	for i in $@
+	do
+# Make sure that the argument is a flag
+		if [ $( echo $i | cut -c 1 ) != '-' ]
+		then
+# The SKIP variable is for when there are flags that take arguments
+			if [ !$SKIP ]
+			then echo "$0: Invalid option '$i'"
+			else (( SKIP-- ))
+			fi
+		elif [ $( echo $i | cut -c 1-2 ) = '--' ]
+		then
+# Set CURRENTFLAG to the relavant part of the flag
+			CURRENTFLAG=$( echo $i | cut -c 3-${#i} )
+# Run the apropriate function based on the flag
+			case $CURRENTFLAG in
+			'hostname' ) hostname ;;
+			'battery' ) battery ;;
+			'system' ) system ;;
+			* ) echo "$0: Invalid flag '$CURRENTFLAG'" ;;
+			esac
+		else
+			for j in {2..${#i}}
+			do
+# Set CURRENTFLAG to the relavant part of the flag
+				CURRENTFLAG=$( echo $i | cut -c $j )
+# Run the apropriate function based on the flag
+				case $CURRENTFLAG in
+				'h' ) hostname ;;
+				'b' ) battery ;;
+				's' ) system ;;
+				* ) echo "$0: Invalid flag '$CURRENTFLAG'" ;;
+				esac
+			done
+		fi
+	done
+fi
